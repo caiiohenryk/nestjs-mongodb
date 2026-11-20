@@ -21,6 +21,16 @@ describe('resolveError', () => {
     expect(resolved).toEqual({ statusCode: 409, error: 'CONFLICT', message: 'Resource already exists' });
   });
 
+  it('maps query time limit errors to 503', () => {
+    const resolved = resolveError(new MongoServerError({ message: 'operation exceeded time limit', code: 50 }));
+
+    expect(resolved).toEqual({
+      statusCode: 503,
+      error: 'SERVICE_UNAVAILABLE',
+      message: 'Query time limit exceeded',
+    });
+  });
+
   it('hides unexpected errors behind a 500', () => {
     const resolved = resolveError(new Error('database password is wrong'));
 

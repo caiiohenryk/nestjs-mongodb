@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { type ClientSession, type Model, type QueryFilter, Types } from 'mongoose';
 import type { Cursor } from '../common/pagination/cursor.js';
+import { AppConfigService } from '../config/app-config.service.js';
 import type { OrderV2Status } from './order-v2-status.js';
 import { OrderV2, type OrderV2Record } from './schemas/order-v2.schema.js';
 
@@ -37,7 +38,10 @@ function afterCursor(cursor: Cursor): QueryFilter<OrderV2> {
 
 @Injectable()
 export class OrdersV2Repository {
-  constructor(@InjectModel(OrderV2.name) private readonly orderV2Model: Model<OrderV2>) {}
+  constructor(
+    @InjectModel(OrderV2.name) private readonly orderV2Model: Model<OrderV2>,
+    private readonly config: AppConfigService,
+  ) {}
 
   async replicate(order: OrderV2Record, session: ClientSession): Promise<void> {
     const { _id: id, ...fields } = order;
@@ -47,7 +51,12 @@ export class OrdersV2Repository {
   }
 
   findById(id: string): Promise<OrderV2Record | null> {
-    return this.orderV2Model.findById(id).select(ORDER_V2_PROJECTION).lean<OrderV2Record>().exec();
+    return this.orderV2Model
+      .findById(id)
+      .select(ORDER_V2_PROJECTION)
+      .maxTimeMS(this.config.queryMaxTimeMs)
+      .lean<OrderV2Record>()
+      .exec();
   }
 
   findPage(filter: OrderV2Filter, page: OrderV2PageRequest): Promise<OrderV2Record[]> {
@@ -61,6 +70,7 @@ export class OrdersV2Repository {
       .select(ORDER_V2_PROJECTION)
       .sort({ createdAt: -1, _id: -1 })
       .limit(page.limit + 1)
+      .maxTimeMS(this.config.queryMaxTimeMs)
       .lean<OrderV2Record[]>()
       .exec();
   }

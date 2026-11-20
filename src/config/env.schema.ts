@@ -11,6 +11,7 @@ export const envSchema = z
     NODE_ENV: z.enum([NodeEnv.Development, NodeEnv.Test, NodeEnv.Production]).default(NodeEnv.Development),
     PORT: z.coerce.number().int().min(1).max(65535).default(3000),
     MONGODB_URI: z.url({ protocol: /^mongodb(\+srv)?$/ }),
+    QUERY_MAX_TIME_MS: z.coerce.number().int().min(100).max(60000).default(2000),
     ORDERS_DUAL_WRITE: z.stringbool().default(false),
     ORDERS_READ_FROM_V2: z.stringbool().default(false),
   })

@@ -8,6 +8,7 @@ describe('validateEnv', () => {
       NODE_ENV: 'development',
       PORT: 3000,
       MONGODB_URI: 'mongodb://localhost:27017/app',
+      QUERY_MAX_TIME_MS: 2000,
       ORDERS_DUAL_WRITE: false,
       ORDERS_READ_FROM_V2: false,
     });
@@ -40,6 +41,12 @@ describe('validateEnv', () => {
   it('refuses to read from v2 without dual write', () => {
     expect(() => validateEnv({ MONGODB_URI: 'mongodb://localhost/app', ORDERS_READ_FROM_V2: 'true' })).toThrow(
       /ORDERS_READ_FROM_V2/,
+    );
+  });
+
+  it('rejects query time limits outside the allowed range', () => {
+    expect(() => validateEnv({ MONGODB_URI: 'mongodb://localhost/app', QUERY_MAX_TIME_MS: '10' })).toThrow(
+      /QUERY_MAX_TIME_MS/,
     );
   });
 });

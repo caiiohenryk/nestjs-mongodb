@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { type ClientSession, type Model, type QueryFilter, Types } from 'mongoose';
 import type { Cursor } from '../common/pagination/cursor.js';
+import { AppConfigService } from '../config/app-config.service.js';
 import type { OrderStatus } from './order-status.js';
 import { Order, type OrderItem, type OrderRecord } from './schemas/order.schema.js';
 
@@ -52,7 +53,10 @@ function afterCursor(cursor: Cursor): QueryFilter<Order> {
 
 @Injectable()
 export class OrdersRepository {
-  constructor(@InjectModel(Order.name) private readonly orderModel: Model<Order>) {}
+  constructor(
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
+    private readonly config: AppConfigService,
+  ) {}
 
   async insert(order: NewOrder, session: ClientSession): Promise<OrderRecord> {
     const created = await new this.orderModel(order).save({ session });
@@ -60,7 +64,12 @@ export class OrdersRepository {
   }
 
   findById(id: string): Promise<OrderRecord | null> {
-    return this.orderModel.findById(id).select(ORDER_PROJECTION).lean<OrderRecord>().exec();
+    return this.orderModel
+      .findById(id)
+      .select(ORDER_PROJECTION)
+      .maxTimeMS(this.config.queryMaxTimeMs)
+      .lean<OrderRecord>()
+      .exec();
   }
 
   findPage(filter: OrderFilter, page: OrderPageRequest): Promise<OrderRecord[]> {
@@ -74,6 +83,7 @@ export class OrdersRepository {
       .select(ORDER_PROJECTION)
       .sort({ createdAt: -1, _id: -1 })
       .limit(page.limit + 1)
+      .maxTimeMS(this.config.queryMaxTimeMs)
       .lean<OrderRecord[]>()
       .exec();
   }

@@ -18,6 +18,10 @@ export class AppConfigService {
     return this.configService.get('MONGODB_URI', { infer: true });
   }
 
+  get queryMaxTimeMs(): number {
+    return this.configService.get('QUERY_MAX_TIME_MS', { infer: true });
+  }
+
   get ordersDualWrite(): boolean {
     return this.configService.get('ORDERS_DUAL_WRITE', { infer: true });
   }
