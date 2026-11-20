@@ -149,7 +149,8 @@ Escrita e leitura ficam em services separados: `<Feature>Service` para comandos 
 
 - `ValidationPipe` global com `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`.
 - Todo campo de entrada tem decorator de validação. Campo sem decorator é bug.
-- `UpdateDto` deriva de `CreateDto` via `PartialType` de `@nestjs/mapped-types`.
+- `UpdateDto` deriva de `CreateDto` via `PartialType` de `@nestjs/swagger` (mantém a documentação).
+- Todo campo de DTO de entrada e de `*Response` tem `@ApiProperty`/`@ApiPropertyOptional`. Todo endpoint declara suas respostas (`@ApiOkResponse`, `@ApiNotFoundResponse`...) com `ErrorResponse` para erros. A documentação fica em `/docs`, fora de produção.
 - Strings recebem `@MaxLength`. Arrays recebem `@ArrayMaxSize`. Números recebem `@Min` e `@Max`.
 - Entrada e saída são classes diferentes. Nunca reutilize o DTO de entrada como resposta.
 
