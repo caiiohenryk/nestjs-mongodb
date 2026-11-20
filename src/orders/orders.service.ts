@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import type { Connection } from 'mongoose';
+import { TRANSACTION_OPTIONS } from '../database/transaction-options.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import type { OrderResponse } from './dto/order.response.js';
 import type { UpdateOrderDto } from './dto/update-order.dto.js';
@@ -33,7 +34,7 @@ export class OrdersService {
       );
       await this.replicator.replicate(inserted, session);
       return inserted;
-    });
+    }, TRANSACTION_OPTIONS);
     return toOrderResponse(order);
   }
 
@@ -51,7 +52,7 @@ export class OrdersService {
         await this.replicator.replicate(record, session);
       }
       return record;
-    });
+    }, TRANSACTION_OPTIONS);
     if (updated === null) {
       throw await this.explainRejectedUpdate(id, dto.status);
     }
@@ -65,7 +66,7 @@ export class OrdersService {
         throw this.notFound(id);
       }
       await this.replicator.remove(id, session);
-    });
+    }, TRANSACTION_OPTIONS);
   }
 
   private async explainRejectedUpdate(

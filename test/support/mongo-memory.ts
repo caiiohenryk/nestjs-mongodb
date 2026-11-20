@@ -5,8 +5,15 @@ export type MongoMemory = {
   readonly stop: () => Promise<void>;
 };
 
-export async function startMongoMemory(databaseName = 'test'): Promise<MongoMemory> {
-  const replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
+export type MongoMemoryOptions = {
+  readonly testCommands?: boolean;
+};
+
+export async function startMongoMemory(databaseName = 'test', options: MongoMemoryOptions = {}): Promise<MongoMemory> {
+  const replSet = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: 'wiredTiger' },
+    instanceOpts: options.testCommands === true ? [{ args: ['--setParameter', 'enableTestCommands=1'] }] : [],
+  });
   return {
     uri: replSet.getUri(databaseName),
     stop: async (): Promise<void> => {
