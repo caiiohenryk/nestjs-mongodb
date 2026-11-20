@@ -29,6 +29,17 @@ Para entrar no shell do banco:
 docker compose exec mongo mongosh nestjs_mongodb
 ```
 
+### Rodando como em produção
+
+```bash
+docker compose --profile app up --build -d
+curl localhost:3001/health/ready
+```
+
+O profile `app` sobe dois serviços a partir do `Dockerfile` multi-stage:
+- `migrate`: aplica as migrations pendentes e termina. A app só sobe se ele terminar com sucesso (`service_completed_successfully`).
+- `app`: imagem só com dependências de produção, usuário não-root, `NODE_ENV=production` e `HEALTHCHECK` em `/health/ready`. Em produção o `/docs` fica desligado e o Mongoose não cria índices (`autoIndex: false`): se um índice for apagado, ele só volta por migration.
+
 ## API
 
 | Método | Rota | Descrição |
