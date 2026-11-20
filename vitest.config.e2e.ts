@@ -9,5 +9,9 @@ export default defineConfig({
     hookTimeout: 120000,
     testTimeout: 30000,
     fileParallelism: false,
+    env: {
+      NODE_ENV: 'test',
+      MONGODB_URI: 'mongodb://e2e-must-use-memory-server.invalid:27017/never',
+    },
   },
 });
