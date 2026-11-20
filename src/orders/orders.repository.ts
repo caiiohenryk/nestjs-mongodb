@@ -15,6 +15,11 @@ export type NewOrder = {
 
 export type OrderChanges = Partial<NewOrder>;
 
+export type OrderUpdate = {
+  readonly changes: OrderChanges;
+  readonly allowedFrom: readonly OrderStatus[];
+};
+
 export type OrderFilter = {
   readonly status?: OrderStatus;
   readonly customerEmail?: string;
@@ -73,9 +78,13 @@ export class OrdersRepository {
       .exec();
   }
 
-  updateById(id: string, changes: OrderChanges, session: ClientSession): Promise<OrderRecord | null> {
+  updateById(id: string, update: OrderUpdate, session: ClientSession): Promise<OrderRecord | null> {
     return this.orderModel
-      .findByIdAndUpdate(id, { $set: changes }, { returnDocument: 'after', runValidators: true, session })
+      .findOneAndUpdate(
+        { _id: id, status: { $in: update.allowedFrom } },
+        { $set: update.changes },
+        { returnDocument: 'after', runValidators: true, session },
+      )
       .select(ORDER_PROJECTION)
       .lean<OrderRecord>()
       .exec();

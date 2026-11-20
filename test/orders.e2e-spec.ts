@@ -106,6 +106,31 @@ describe('Orders (e2e)', () => {
     expect(response.status).toBe(422);
   });
 
+  it('rejects going back from paid to pending with 422', async () => {
+    const created = await createOrder();
+    await request(app.getHttpServer()).patch(`/orders/${created.id}`).send({ status: 'PAID' }).expect(200);
+
+    const response = await request(app.getHttpServer()).patch(`/orders/${created.id}`).send({ status: 'PENDING' });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toMatchObject({ message: 'Order cannot change from PAID to PENDING' });
+  });
+
+  it('never applies concurrent changes to an order that was canceled', async () => {
+    const created = await createOrder();
+    await request(app.getHttpServer()).patch(`/orders/${created.id}`).send({ status: 'CANCELED' }).expect(200);
+
+    const responses = await Promise.all(
+      ['Bia', 'Caio', 'Duda'].map((customerName) =>
+        request(app.getHttpServer()).patch(`/orders/${created.id}`).send({ customerName }),
+      ),
+    );
+    const current = await request(app.getHttpServer()).get(`/orders/${created.id}`);
+
+    expect(responses.map((response) => response.status)).toEqual([422, 422, 422]);
+    expect(current.body).toMatchObject({ customerName: 'Ana', status: 'CANCELED' });
+  });
+
   it('deletes an order and then returns 404', async () => {
     const created = await createOrder();
 

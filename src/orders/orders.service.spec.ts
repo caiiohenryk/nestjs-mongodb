@@ -9,6 +9,8 @@ import { OrdersRepository } from './orders.repository.js';
 import { OrdersService } from './orders.service.js';
 import { buildOrder } from './testing/build-order.js';
 
+const id = '6740a1b2c3d4e5f6a7b8c9d0';
+
 describe('OrdersService', () => {
   let findById: Mock<OrdersRepository['findById']>;
   let transaction: Mock<Connection['transaction']>;
@@ -28,21 +30,28 @@ describe('OrdersService', () => {
     service = moduleRef.get(OrdersService);
   });
 
-  it('throws not found when updating a missing order', async () => {
+  it('throws not found when the conditional update matched nothing and the order does not exist', async () => {
+    transaction.mockResolvedValue(null);
     findById.mockResolvedValue(null);
 
-    await expect(service.update('6740a1b2c3d4e5f6a7b8c9d0', { customerName: 'Bia' })).rejects.toThrow(
-      NotFoundException,
-    );
-    expect(transaction).not.toHaveBeenCalled();
+    await expect(service.update(id, { customerName: 'Bia' })).rejects.toThrow(NotFoundException);
   });
 
-  it('refuses to change a canceled order without opening a transaction', async () => {
+  it('throws unprocessable when a canceled order is changed', async () => {
+    transaction.mockResolvedValue(null);
     findById.mockResolvedValue(buildOrder({ status: OrderStatus.Canceled }));
 
-    await expect(service.update('6740a1b2c3d4e5f6a7b8c9d0', { customerName: 'Bia' })).rejects.toThrow(
-      UnprocessableEntityException,
+    await expect(service.update(id, { customerName: 'Bia' })).rejects.toThrow(
+      new UnprocessableEntityException('Orders with status CANCELED cannot be changed'),
     );
-    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('throws unprocessable when a paid order goes back to pending', async () => {
+    transaction.mockResolvedValue(null);
+    findById.mockResolvedValue(buildOrder({ status: OrderStatus.Paid }));
+
+    await expect(service.update(id, { status: OrderStatus.Pending })).rejects.toThrow(
+      new UnprocessableEntityException('Order cannot change from PAID to PENDING'),
+    );
   });
 });

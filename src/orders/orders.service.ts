@@ -5,6 +5,7 @@ import type { CreateOrderDto } from './dto/create-order.dto.js';
 import type { OrderResponse } from './dto/order.response.js';
 import type { UpdateOrderDto } from './dto/update-order.dto.js';
 import { OrderStatus } from './order-status.js';
+import { statusesAllowedToBecome } from './order-status-transitions.js';
 import { calculateTotalCents } from './order-total.js';
 import { OrdersV2Replicator } from './orders-v2.replicator.js';
 import { toOrderResponse } from './orders.mapper.js';
@@ -37,27 +38,23 @@ export class OrdersService {
   }
 
   async update(id: string, dto: UpdateOrderDto): Promise<OrderResponse> {
-    const existing = await this.ordersRepository.findById(id);
-    if (existing === null) {
-      throw this.notFound(id);
-    }
-    if (existing.status === OrderStatus.Canceled) {
-      throw new UnprocessableEntityException('Canceled orders cannot be changed');
-    }
     const changes: OrderChanges = {
       ...(dto.customerName !== undefined && { customerName: dto.customerName }),
       ...(dto.customerEmail !== undefined && { customerEmail: dto.customerEmail }),
       ...(dto.status !== undefined && { status: dto.status }),
       ...(dto.items !== undefined && { items: dto.items, totalCents: calculateTotalCents(dto.items) }),
     };
+    const allowedFrom = statusesAllowedToBecome(dto.status);
     const updated = await this.connection.transaction(async (session) => {
-      const record = await this.ordersRepository.updateById(id, changes, session);
-      if (record === null) {
-        throw this.notFound(id);
+      const record = await this.ordersRepository.updateById(id, { changes, allowedFrom }, session);
+      if (record !== null) {
+        await this.replicator.replicate(record, session);
       }
-      await this.replicator.replicate(record, session);
       return record;
     });
+    if (updated === null) {
+      throw await this.explainRejectedUpdate(id, dto.status);
+    }
     return toOrderResponse(updated);
   }
 
@@ -69,6 +66,20 @@ export class OrdersService {
       }
       await this.replicator.remove(id, session);
     });
+  }
+
+  private async explainRejectedUpdate(
+    id: string,
+    target: OrderStatus | undefined,
+  ): Promise<NotFoundException | UnprocessableEntityException> {
+    const current = await this.ordersRepository.findById(id);
+    if (current === null) {
+      return this.notFound(id);
+    }
+    if (target === undefined) {
+      return new UnprocessableEntityException(`Orders with status ${current.status} cannot be changed`);
+    }
+    return new UnprocessableEntityException(`Order cannot change from ${current.status} to ${target}`);
   }
 
   private notFound(id: string): NotFoundException {
