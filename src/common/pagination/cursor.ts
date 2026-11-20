@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import type { Types } from 'mongoose';
 import { isObjectIdString } from '../pipes/object-id.pipe.js';
 
 export type Cursor = {
@@ -41,4 +42,13 @@ export function decodeCursor(value: string): Cursor {
     throw new BadRequestException('Invalid cursor');
   }
   return { createdAt, id: parsed.i };
+}
+
+export type CursorSource = {
+  readonly createdAt: Date;
+  readonly _id: Types.ObjectId;
+};
+
+export function cursorOf(record: CursorSource): Cursor {
+  return { createdAt: record.createdAt, id: record._id.toHexString() };
 }

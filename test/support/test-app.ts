@@ -9,15 +9,17 @@ import { type Env, validateEnv } from '../../src/config/env.schema.js';
 
 export type TestApp = INestApplication<App>;
 
-function createTestConfig(mongodbUri: string): AppConfigService {
-  const env = validateEnv({ NODE_ENV: 'test', MONGODB_URI: mongodbUri });
+export type TestEnv = Partial<Record<'ORDERS_DUAL_WRITE' | 'ORDERS_READ_FROM_V2', string>>;
+
+function createTestConfig(mongodbUri: string, overrides: TestEnv): AppConfigService {
+  const env = validateEnv({ ...overrides, NODE_ENV: 'test', MONGODB_URI: mongodbUri });
   return new AppConfigService(new ConfigService<Env, true>(env));
 }
 
-export async function createTestApp(mongodbUri: string): Promise<TestApp> {
+export async function createTestApp(mongodbUri: string, overrides: TestEnv = {}): Promise<TestApp> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(AppConfigService)
-    .useValue(createTestConfig(mongodbUri))
+    .useValue(createTestConfig(mongodbUri, overrides))
     .compile();
   const app = configureApp(moduleRef.createNestApplication<TestApp>());
   await app.init();

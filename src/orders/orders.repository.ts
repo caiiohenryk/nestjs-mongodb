@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { type Model, type QueryFilter, Types } from 'mongoose';
+import { type ClientSession, type Model, type QueryFilter, Types } from 'mongoose';
 import type { Cursor } from '../common/pagination/cursor.js';
 import type { OrderStatus } from './order-status.js';
 import { Order, type OrderItem, type OrderRecord } from './schemas/order.schema.js';
@@ -49,8 +49,8 @@ function afterCursor(cursor: Cursor): QueryFilter<Order> {
 export class OrdersRepository {
   constructor(@InjectModel(Order.name) private readonly orderModel: Model<Order>) {}
 
-  async insert(order: NewOrder): Promise<OrderRecord> {
-    const created = await this.orderModel.create(order);
+  async insert(order: NewOrder, session: ClientSession): Promise<OrderRecord> {
+    const created = await new this.orderModel(order).save({ session });
     return created.toObject();
   }
 
@@ -73,16 +73,16 @@ export class OrdersRepository {
       .exec();
   }
 
-  updateById(id: string, changes: OrderChanges): Promise<OrderRecord | null> {
+  updateById(id: string, changes: OrderChanges, session: ClientSession): Promise<OrderRecord | null> {
     return this.orderModel
-      .findByIdAndUpdate(id, { $set: changes }, { returnDocument: 'after', runValidators: true })
+      .findByIdAndUpdate(id, { $set: changes }, { returnDocument: 'after', runValidators: true, session })
       .select(ORDER_PROJECTION)
       .lean<OrderRecord>()
       .exec();
   }
 
-  async deleteById(id: string): Promise<boolean> {
-    const result = await this.orderModel.deleteOne({ _id: id }).exec();
+  async deleteById(id: string, session: ClientSession): Promise<boolean> {
+    const result = await this.orderModel.deleteOne({ _id: id }, { session }).exec();
     return result.deletedCount === 1;
   }
 }

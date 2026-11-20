@@ -5,11 +5,15 @@ import { CreateOrderDto } from './dto/create-order.dto.js';
 import type { OrderResponse } from './dto/order.response.js';
 import { QueryOrderDto } from './dto/query-order.dto.js';
 import { UpdateOrderDto } from './dto/update-order.dto.js';
+import { OrdersQueryService } from './orders-query.service.js';
 import { OrdersService } from './orders.service.js';
 
 @Controller('orders')
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly ordersQueryService: OrdersQueryService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -19,12 +23,12 @@ export class OrdersController {
 
   @Get()
   findPage(@Query() query: QueryOrderDto): Promise<PageResponse<OrderResponse>> {
-    return this.ordersService.findPage(query);
+    return this.ordersQueryService.findPage(query);
   }
 
   @Get(':id')
   findById(@Param('id', ObjectIdPipe) id: string): Promise<OrderResponse> {
-    return this.ordersService.findById(id);
+    return this.ordersQueryService.findById(id);
   }
 
   @Patch(':id')
