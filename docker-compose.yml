@@ -29,5 +29,32 @@ services:
       ME_CONFIG_MONGODB_URL: mongodb://mongo:27017/?directConnection=true
       ME_CONFIG_BASICAUTH_ENABLED: "false"
 
+  migrate:
+    profiles: ["app"]
+    build:
+      context: .
+      target: migrate
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/nestjs_mongodb?directConnection=true
+
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+      target: runtime
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3001:3000"
+    environment:
+      PORT: "3000"
+      MONGODB_URI: mongodb://mongo:27017/nestjs_mongodb?directConnection=true
+      ORDERS_DUAL_WRITE: "false"
+      ORDERS_READ_FROM_V2: "false"
+
 volumes:
   mongo-data:
