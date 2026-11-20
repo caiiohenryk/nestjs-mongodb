@@ -250,3 +250,9 @@ Fluxos repetíveis ficam em `.claude/skills/`. Use a skill correspondente em vez
 - `nest-feature`: criar uma nova feature (módulo CRUD completo).
 - `mongo-migration`: criar uma migration ou backfill.
 - `mongo-query-review`: criar ou revisar uma consulta e seu índice.
+
+## Agents
+
+Agentes ficam em `.claude/agents/`:
+
+- `idea-scout`: lê o repositório e propõe as próximas implementações priorizadas, já com mensagem de commit. Não edita arquivos.
