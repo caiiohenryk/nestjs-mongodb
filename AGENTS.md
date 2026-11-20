@@ -120,7 +120,7 @@ Fluxo único: `Controller -> Service -> Repository -> Model`.
 - NUNCA contém regra de negócio, `if` de domínio ou `try/catch`.
 - Rotas no plural e em `kebab-case`: `/orders`, `/orders-v2`.
 - Status HTTP explícitos com `@HttpCode` quando diferentes do padrão. `POST` de criação retorna 201, `DELETE` retorna 204.
-- `:id` sempre validado por `ParseObjectIdPipe` antes de chegar ao service.
+- `:id` sempre validado por `ObjectIdPipe` (`src/common/pipes/object-id.pipe.ts`) antes de chegar ao service. O service recebe `string`, nunca `Types.ObjectId`.
 
 ### Service
 
@@ -177,7 +177,7 @@ Fluxo único: `Controller -> Service -> Repository -> Model`.
 - Limite padrão 20, máximo 100, validado no DTO de query.
 - Filtros vindos do cliente são mapeados campo a campo para o filtro Mongo. NUNCA repasse `req.query` ou um objeto do cliente direto para `find`.
 - `updateOne`/`findOneAndUpdate` sempre com operadores (`$set`, `$inc`, `$push`). Substituição de documento inteiro é proibida fora de migrations.
-- `findOneAndUpdate` sempre com `{ new: true, runValidators: true }`.
+- `findOneAndUpdate`/`findByIdAndUpdate` sempre com `{ returnDocument: 'after', runValidators: true }`. A opção `new` está depreciada.
 - Deleção física por padrão. Soft delete só quando um requisito explícito exigir, com campo `deletedAt`.
 
 ### Conexão
@@ -218,6 +218,8 @@ Fluxo único: `Controller -> Service -> Repository -> Model`.
 
 - Service: teste unitário com repository mockado.
 - Repository e fluxos com transação: teste de integração com `MongoMemoryReplSet`.
+- Testes e2e criam a aplicação com `createTestApp` (`test/support/`), que sobrescreve o `AppConfigService`. NUNCA configure o banco de teste alterando `process.env`: o `ConfigModule` lê o ambiente no import, antes do teste rodar.
+- Corpo de resposta em e2e é validado com schema `zod` (`schema.parse(response.body)`), nunca atribuído direto de `any`.
 - Todo endpoint tem teste e2e cobrindo sucesso, validação (400), não encontrado (404) e conflito quando aplicável.
 - Toda migration tem teste: popula dados no formato antigo, roda `up`, verifica o formato novo, roda `up` de novo e verifica idempotência.
 - Padrão AAA (arrange, act, assert) separado por linha em branco. Nome do teste descreve comportamento: `it('returns 404 when order does not exist')`.
