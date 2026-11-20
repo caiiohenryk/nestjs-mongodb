@@ -38,6 +38,11 @@ docker compose exec mongo mongosh nestjs_mongodb
 | `GET` | `/orders/:id` | Busca um pedido. |
 | `PATCH` | `/orders/:id` | Altera campos. Pedidos cancelados não podem ser alterados (422). |
 | `DELETE` | `/orders/:id` | Remove (204). |
+| `GET` | `/orders/reports/daily-revenue?from=...&to=...&status=PAID` | Receita por dia (UTC) via aggregation, intervalo `[from, to)` de até 366 dias. |
+| `GET` | `/health/live` | Liveness: o processo responde. Não toca no banco. |
+| `GET` | `/health/ready` | Readiness: banco responde, nó é primário gravável e a app não está desligando. |
+
+Transições de status permitidas: `PENDING → PAID → CANCELED` e `PENDING → CANCELED`. A verificação acontece no filtro do próprio update (`{ _id, status: { $in: [...] } }`), então duas requisições concorrentes não conseguem alterar um pedido cancelado.
 
 ```bash
 curl -X POST localhost:3000/orders -H 'content-type: application/json' -d '{
@@ -115,6 +120,19 @@ db.orders.find({ status: 'PAID' }).sort({ createdAt: -1, _id: -1 }).limit(21).ex
 ```
 
 O que observar: `winningPlan` com `IXSCAN`, nenhum estágio `SORT` (ordenação em memória) e `totalDocsExamined` próximo de `nReturned`.
+
+**Aggregation pipeline.** Relatórios usam `$match` primeiro, para que o índice filtre os documentos antes do `$group`. O relatório de receita filtrado por status em um mês de 100 mil pedidos usa `status_createdAt_id`, examina só os 4.940 documentos do intervalo e devolve 30 linhas:
+
+```js
+db.orders.explain('executionStats').aggregate([
+  { $match: { status: 'PAID', createdAt: { $gte: ISODate('2026-06-01'), $lt: ISODate('2026-07-01') } } },
+  { $group: { _id: { $dateTrunc: { date: '$createdAt', unit: 'day' } }, orderCount: { $sum: 1 }, grossCents: { $sum: '$totalCents' } } }
+])
+```
+
+**Limite de tempo por consulta.** Toda leitura usa `maxTimeMS` (`QUERY_MAX_TIME_MS`, padrão 2000). Uma consulta que estoura o limite é abortada pelo servidor e a API responde 503, em vez de segurar uma conexão do pool indefinidamente.
+
+**Transações.** As escritas em `orders` e `orders_v2` usam `readConcern: 'snapshot'`, `writeConcern: 'majority'` e `maxCommitTimeMS`. Em erro transitório (`TransientTransactionError`, como um write conflict) o Mongoose repete a transação inteira. O teste `test/orders-transaction-retry.e2e-spec.ts` usa um failpoint do servidor para provar o retry e o rollback.
 
 **Paginação por cursor.** `skip(100000)` obriga o MongoDB a percorrer 100 mil entradas antes de retornar algo. O cursor (`createdAt` + `_id` do último item da página, em base64url) vira um filtro `{ createdAt < x }` que usa o índice diretamente, então toda página custa o mesmo.
 
