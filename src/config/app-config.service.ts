@@ -18,6 +18,14 @@ export class AppConfigService {
     return this.configService.get('MONGODB_URI', { infer: true });
   }
 
+  get ordersDualWrite(): boolean {
+    return this.configService.get('ORDERS_DUAL_WRITE', { infer: true });
+  }
+
+  get ordersReadFromV2(): boolean {
+    return this.configService.get('ORDERS_READ_FROM_V2', { infer: true });
+  }
+
   get isProduction(): boolean {
     return this.nodeEnv === NodeEnv.Production;
   }
