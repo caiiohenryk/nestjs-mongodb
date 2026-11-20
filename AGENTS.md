@@ -7,7 +7,7 @@ Regras obrigatórias deste repositório. Valem para humanos e agentes. "DEVE" e 
 - Node.js 24 LTS, npm (sem yarn ou pnpm).
 - NestJS 12, ESM puro, TypeScript em modo `strict`.
 - MongoDB 8 via Mongoose (`@nestjs/mongoose`). TypeORM, Prisma e Typegoose são proibidos.
-- Driver nativo `mongodb` permitido somente em `migrations/` e `scripts/`.
+- Driver nativo `mongodb` permitido somente em `migrations/`, `scripts/`, testes e para tipos/erros em `src/`. A versão DEVE ser a mesma faixa que o Mongoose usa (`npm ls mongodb` mostra uma cópia só, `deduped`). Duas cópias quebram `instanceof MongoServerError`.
 - Validação: `class-validator` + `class-transformer`.
 - Configuração: `@nestjs/config` com validação de env por schema `zod` na inicialização.
 - Migrations: `migrate-mongo`.
@@ -131,7 +131,7 @@ Escrita e leitura ficam em services separados: `<Feature>Service` para comandos 
 - Contém as regras de negócio. Não conhece `Request`, `Response` ou decorators HTTP.
 - Lança exceções de domínio do Nest (`NotFoundException`, `ConflictException`, `UnprocessableEntityException`).
 - NUNCA retorna documento Mongoose. Retorna tipos de domínio ou o resultado do mapper.
-- Operações que escrevem em mais de uma collection DEVEM usar transação (`connection.transaction`).
+- Operações que escrevem em mais de uma collection DEVEM usar transação: `connection.transaction(work, TRANSACTION_OPTIONS)` (`src/database/transaction-options.ts`). O callback pode rodar mais de uma vez (retry de erro transitório), então não pode ter efeitos fora do banco.
 
 ### Repository
 
