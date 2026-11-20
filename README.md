@@ -210,6 +210,18 @@ As duas mantêm o documento mais novo: se `orders_v2` já tem uma versão com `u
 
 O boot recusa `ORDERS_READ_FROM_V2=true` sem `ORDERS_DUAL_WRITE=true`, porque nesse caso as leituras perderiam as escritas novas.
 
+### Change streams: a alternativa ao dual-write
+
+Em vez de a aplicação gravar nas duas collections, um processo separado pode assistir as mudanças de `orders` pelo oplog e reagir a elas (CDC, change data capture). `npm run watch:orders` mostra isso:
+
+```
+2026-11-20T22:36:31.914Z insert 6b00cb6f275a8ce96e02d539
+2026-11-20T22:36:31.920Z update 6b00cb6f275a8ce96e02d539
+2026-11-20T22:36:31.925Z delete 6b00cb6f275a8ce96e02d539
+```
+
+O consumidor salva o *resume token* do último evento em `change_stream_checkpoints`. Depois de um restart ele continua exatamente dali, sem perder nem repetir eventos, desde que o token ainda esteja dentro da janela do oplog. Comparado ao dual-write, o change stream não deixa a escrita mais lenta nem acopla as duas collections numa transação, mas a cópia fica eventualmente consistente (alguns milissegundos atrás) e exige um processo a mais para operar.
+
 ## Scripts
 
 | Comando | Descrição |
@@ -222,3 +234,4 @@ O boot recusa `ORDERS_READ_FROM_V2=true` sem `ORDERS_DUAL_WRITE=true`, porque ne
 | `npm run explain` | Compara planos de consulta com e sem índice |
 | `npm run backfill:orders-v2` | Backfill em lotes com checkpoint |
 | `npm run validate:orders-v2` | Valida `orders_v2` contra `orders` |
+| `npm run watch:orders` | Consumidor de change stream com checkpoint de resume token |
