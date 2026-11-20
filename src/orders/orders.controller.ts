@@ -2,7 +2,9 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post
 import type { PageResponse } from '../common/pagination/page.response.js';
 import { ObjectIdPipe } from '../common/pipes/object-id.pipe.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
+import type { DailyRevenueResponse } from './dto/daily-revenue.response.js';
 import type { OrderResponse } from './dto/order.response.js';
+import { QueryDailyRevenueDto } from './dto/query-daily-revenue.dto.js';
 import { QueryOrderDto } from './dto/query-order.dto.js';
 import { UpdateOrderDto } from './dto/update-order.dto.js';
 import { OrdersQueryService } from './orders-query.service.js';
@@ -24,6 +26,11 @@ export class OrdersController {
   @Get()
   findPage(@Query() query: QueryOrderDto): Promise<PageResponse<OrderResponse>> {
     return this.ordersQueryService.findPage(query);
+  }
+
+  @Get('reports/daily-revenue')
+  dailyRevenue(@Query() query: QueryDailyRevenueDto): Promise<DailyRevenueResponse> {
+    return this.ordersQueryService.dailyRevenue(query);
   }
 
   @Get(':id')

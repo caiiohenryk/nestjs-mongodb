@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { type ClientSession, type Model, type QueryFilter, Types } from 'mongoose';
 import type { Cursor } from '../common/pagination/cursor.js';
+import { type DailyRevenueRange, type DailyRevenueRow, dailyRevenueStages } from '../common/reports/daily-revenue.js';
 import { AppConfigService } from '../config/app-config.service.js';
 import type { OrderV2Status } from './order-v2-status.js';
 import { OrderV2, type OrderV2Record } from './schemas/order-v2.schema.js';
@@ -72,6 +73,21 @@ export class OrdersV2Repository {
       .limit(page.limit + 1)
       .maxTimeMS(this.config.queryMaxTimeMs)
       .lean<OrderV2Record[]>()
+      .exec();
+  }
+
+  aggregateDailyRevenue(range: DailyRevenueRange, status: OrderV2Status | undefined): Promise<DailyRevenueRow[]> {
+    return this.orderV2Model
+      .aggregate<DailyRevenueRow>([
+        {
+          $match: {
+            ...(status !== undefined && { status }),
+            createdAt: { $gte: range.from, $lt: range.to },
+          },
+        },
+        ...dailyRevenueStages('$totals.grossCents'),
+      ])
+      .option({ maxTimeMS: this.config.queryMaxTimeMs })
       .exec();
   }
 
