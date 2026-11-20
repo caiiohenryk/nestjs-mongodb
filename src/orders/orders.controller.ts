@@ -1,4 +1,16 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseInterceptors,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -6,9 +18,11 @@ import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
+  ApiPreconditionFailedResponse,
   ApiTags,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { RequestHeader } from '../common/decorators/request-header.decorator.js';
 import { ErrorResponse } from '../common/filters/error.response.js';
 import type { PageResponse } from '../common/pagination/page.response.js';
 import { ObjectIdPipe } from '../common/pipes/object-id.pipe.js';
@@ -18,8 +32,9 @@ import { OrderPageResponse, OrderResponse } from './dto/order.response.js';
 import { QueryDailyRevenueDto } from './dto/query-daily-revenue.dto.js';
 import { QueryOrderDto } from './dto/query-order.dto.js';
 import { UpdateOrderDto } from './dto/update-order.dto.js';
-import { IdempotencyKey } from './idempotency-key.decorator.js';
 import { IdempotencyKeyPipe } from './idempotency-key.pipe.js';
+import { OrderEtagInterceptor } from './order-etag.interceptor.js';
+import { IfMatchPipe } from './order-version.js';
 import { OrdersQueryService } from './orders-query.service.js';
 import { OrdersService } from './orders.service.js';
 
@@ -43,7 +58,7 @@ export class OrdersController {
   @ApiUnprocessableEntityResponse({ type: ErrorResponse, description: 'Idempotency-Key reused with another body' })
   create(
     @Body() dto: CreateOrderDto,
-    @IdempotencyKey(IdempotencyKeyPipe) idempotencyKey: string | undefined,
+    @RequestHeader('idempotency-key', IdempotencyKeyPipe) idempotencyKey: string | undefined,
   ): Promise<OrderResponse> {
     return this.ordersService.create(dto, idempotencyKey);
   }
@@ -61,18 +76,26 @@ export class OrdersController {
   }
 
   @Get(':id')
-  @ApiOkResponse({ type: OrderResponse })
+  @UseInterceptors(OrderEtagInterceptor)
+  @ApiOkResponse({ type: OrderResponse, headers: { ETag: { description: 'Version to send back in If-Match' } } })
   @ApiNotFoundResponse({ type: ErrorResponse })
   findById(@Param('id', ObjectIdPipe) id: string): Promise<OrderResponse> {
     return this.ordersQueryService.findById(id);
   }
 
   @Patch(':id')
+  @UseInterceptors(OrderEtagInterceptor)
+  @ApiHeader({ name: 'If-Match', required: false, description: 'ETag from GET; the update fails with 412 if stale' })
   @ApiOkResponse({ type: OrderResponse })
   @ApiNotFoundResponse({ type: ErrorResponse })
+  @ApiPreconditionFailedResponse({ type: ErrorResponse, description: 'Order changed since the given ETag' })
   @ApiUnprocessableEntityResponse({ type: ErrorResponse, description: 'Status transition not allowed' })
-  update(@Param('id', ObjectIdPipe) id: string, @Body() dto: UpdateOrderDto): Promise<OrderResponse> {
-    return this.ordersService.update(id, dto);
+  update(
+    @Param('id', ObjectIdPipe) id: string,
+    @Body() dto: UpdateOrderDto,
+    @RequestHeader('if-match', IfMatchPipe) expectedUpdatedAt: Date | undefined,
+  ): Promise<OrderResponse> {
+    return this.ordersService.update({ id, dto, expectedUpdatedAt });
   }
 
   @Delete(':id')

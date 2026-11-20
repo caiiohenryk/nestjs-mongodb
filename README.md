@@ -44,6 +44,8 @@ docker compose exec mongo mongosh nestjs_mongodb
 
 `POST /orders` aceita o header `Idempotency-Key` (8 a 128 caracteres). Repetir a requisição com a mesma chave devolve o pedido original em vez de criar outro, o que torna seguro o retry depois de um timeout de rede. A mesma chave com um corpo diferente responde 422. A chave é o `_id` de um documento em `order_idempotency_keys`, gravado na mesma transação do pedido, então requisições concorrentes com a mesma chave criam um pedido só. Um índice TTL apaga as chaves depois de 24 horas.
 
+`GET /orders/:id` e `PATCH /orders/:id` devolvem o header `ETag` (derivado de `updatedAt`). Enviar esse valor em `If-Match` no `PATCH` ativa a concorrência otimista: o `updatedAt` esperado entra no filtro do `findOneAndUpdate`, e se outro cliente alterou o pedido nesse meio tempo a API responde 412 em vez de sobrescrever a alteração dele (lost update).
+
 Transições de status permitidas: `PENDING → PAID → CANCELED` e `PENDING → CANCELED`. A verificação acontece no filtro do próprio update (`{ _id, status: { $in: [...] } }`), então duas requisições concorrentes não conseguem alterar um pedido cancelado.
 
 ```bash

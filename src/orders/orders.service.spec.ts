@@ -1,4 +1,4 @@
-import { NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { NotFoundException, PreconditionFailedException, UnprocessableEntityException } from '@nestjs/common';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
 import type { Connection } from 'mongoose';
@@ -34,14 +34,14 @@ describe('OrdersService', () => {
     transaction.mockResolvedValue(null);
     findById.mockResolvedValue(null);
 
-    await expect(service.update(id, { customerName: 'Bia' })).rejects.toThrow(NotFoundException);
+    await expect(service.update({ id, dto: { customerName: 'Bia' } })).rejects.toThrow(NotFoundException);
   });
 
   it('throws unprocessable when a canceled order is changed', async () => {
     transaction.mockResolvedValue(null);
     findById.mockResolvedValue(buildOrder({ status: OrderStatus.Canceled }));
 
-    await expect(service.update(id, { customerName: 'Bia' })).rejects.toThrow(
+    await expect(service.update({ id, dto: { customerName: 'Bia' } })).rejects.toThrow(
       new UnprocessableEntityException('Orders with status CANCELED cannot be changed'),
     );
   });
@@ -50,8 +50,17 @@ describe('OrdersService', () => {
     transaction.mockResolvedValue(null);
     findById.mockResolvedValue(buildOrder({ status: OrderStatus.Paid }));
 
-    await expect(service.update(id, { status: OrderStatus.Pending })).rejects.toThrow(
+    await expect(service.update({ id, dto: { status: OrderStatus.Pending } })).rejects.toThrow(
       new UnprocessableEntityException('Order cannot change from PAID to PENDING'),
     );
+  });
+
+  it('throws precondition failed when the order changed since the given version', async () => {
+    transaction.mockResolvedValue(null);
+    findById.mockResolvedValue(buildOrder({ updatedAt: new Date('2026-11-21T00:00:00.000Z') }));
+
+    await expect(
+      service.update({ id, dto: { customerName: 'Bia' }, expectedUpdatedAt: new Date('2026-11-20T10:00:00.000Z') }),
+    ).rejects.toThrow(PreconditionFailedException);
   });
 });

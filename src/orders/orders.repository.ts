@@ -20,6 +20,7 @@ export type OrderChanges = Partial<NewOrder>;
 export type OrderUpdate = {
   readonly changes: OrderChanges;
   readonly allowedFrom: readonly OrderStatus[];
+  readonly expectedUpdatedAt?: Date;
 };
 
 export type OrderFilter = {
@@ -107,7 +108,11 @@ export class OrdersRepository {
   updateById(id: string, update: OrderUpdate, session: ClientSession): Promise<OrderRecord | null> {
     return this.orderModel
       .findOneAndUpdate(
-        { _id: id, status: { $in: update.allowedFrom } },
+        {
+          _id: id,
+          status: { $in: update.allowedFrom },
+          ...(update.expectedUpdatedAt !== undefined && { updatedAt: update.expectedUpdatedAt }),
+        },
         { $set: update.changes },
         { returnDocument: 'after', runValidators: true, session },
       )

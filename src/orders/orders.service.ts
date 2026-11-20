@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  PreconditionFailedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { MongoServerError } from 'mongodb';
 import type { Connection } from 'mongoose';
@@ -17,6 +22,14 @@ import { OrdersStore } from './orders.store.js';
 import type { OrderRecord } from './schemas/order.schema.js';
 
 const DUPLICATE_KEY_ERROR_CODE = 11000;
+
+export type UpdateRequest = {
+  readonly id: string;
+  readonly dto: UpdateOrderDto;
+  readonly expectedUpdatedAt?: Date;
+};
+
+type RejectedUpdate = NotFoundException | PreconditionFailedException | UnprocessableEntityException;
 
 type IdempotentRequest = {
   readonly key: string;
@@ -48,7 +61,7 @@ export class OrdersService {
     }
   }
 
-  async update(id: string, dto: UpdateOrderDto): Promise<OrderResponse> {
+  async update({ id, dto, expectedUpdatedAt }: UpdateRequest): Promise<OrderResponse> {
     const changes: OrderChanges = {
       ...(dto.customerName !== undefined && { customerName: dto.customerName }),
       ...(dto.customerEmail !== undefined && { customerEmail: dto.customerEmail }),
@@ -57,11 +70,11 @@ export class OrdersService {
     };
     const allowedFrom = statusesAllowedToBecome(dto.status);
     const updated = await this.connection.transaction(
-      (session) => this.store.updateById(id, { changes, allowedFrom }, session),
+      (session) => this.store.updateById(id, { changes, allowedFrom, expectedUpdatedAt }, session),
       TRANSACTION_OPTIONS,
     );
     if (updated === null) {
-      throw await this.explainRejectedUpdate(id, dto.status);
+      throw await this.explainRejectedUpdate({ id, dto, expectedUpdatedAt });
     }
     return toOrderResponse(updated);
   }
@@ -125,13 +138,14 @@ export class OrdersService {
     return order;
   }
 
-  private async explainRejectedUpdate(
-    id: string,
-    target: OrderStatus | undefined,
-  ): Promise<NotFoundException | UnprocessableEntityException> {
+  private async explainRejectedUpdate({ id, dto, expectedUpdatedAt }: UpdateRequest): Promise<RejectedUpdate> {
+    const target = dto.status;
     const current = await this.store.findById(id);
     if (current === null) {
       return this.notFound(id);
+    }
+    if (expectedUpdatedAt !== undefined && current.updatedAt.getTime() !== expectedUpdatedAt.getTime()) {
+      return new PreconditionFailedException('Order was modified by another request; fetch it again and retry');
     }
     if (target === undefined) {
       return new UnprocessableEntityException(`Orders with status ${current.status} cannot be changed`);
