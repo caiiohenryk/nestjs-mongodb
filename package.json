@@ -25,7 +25,9 @@
     "migrate:status": "migrate-mongo status -f migrate-mongo-config.ts",
     "migrate:create": "migrate-mongo create -f migrate-mongo-config.ts",
     "db:up": "docker compose up -d --wait",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "seed": "node scripts/seed-orders.ts",
+    "explain": "node scripts/explain-orders.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
