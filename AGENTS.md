@@ -51,6 +51,7 @@ src/
     <feature>.module.ts
     <feature>.controller.ts
     <feature>.service.ts
+    <feature>-query.service.ts
     <feature>.repository.ts
     schemas/<entity>.schema.ts
     dto/create-<entity>.dto.ts
@@ -67,7 +68,7 @@ migrations/
 scripts/
 ```
 
-- Uma feature por pasta. Uma feature NUNCA importa arquivos internos de outra feature, apenas o que o módulo dela exporta.
+- Uma feature por pasta. A API pública de uma feature é o seu `index.ts`. Outra feature importa SOMENTE desse arquivo, nunca de arquivos internos.
 - `common/` contém somente código usado por duas ou mais features.
 - Proibido criar pastas `utils/`, `helpers/`, `shared/` ou `misc/`.
 
@@ -92,11 +93,12 @@ scripts/
   ```
 - Retorno explícito em todo método público de service, repository e controller.
 - `readonly` em toda propriedade injetada e em todo campo de DTO de resposta.
-- Imports relativos sempre terminando em `.js` (ESM). Aliases de path são proibidos.
+- Em `src/` e `test/`, imports relativos terminam em `.js` (ESM). Em `scripts/`, terminam em `.ts`, porque o Node executa os arquivos direto. Aliases de path são proibidos.
 - Imports de tipo com `import type` ou `type` inline.
 - `__dirname` não existe. Use `import.meta.dirname`.
 - Exports nomeados apenas. `export default` é proibido.
 - Funções com no máximo 3 parâmetros posicionais. Acima disso, um objeto tipado.
+- Construtores contam: uma classe com mais de 3 dependências injetadas tem responsabilidade demais e DEVE ser dividida.
 - Early return no lugar de `else` após `return` ou `throw`.
 
 ### Nomes
@@ -112,6 +114,8 @@ scripts/
 ## Camadas
 
 Fluxo único: `Controller -> Service -> Repository -> Model`.
+
+Escrita e leitura ficam em services separados: `<Feature>Service` para comandos (criar, alterar, remover) e `<Feature>QueryService` para consultas. Isso permite trocar a origem da leitura (ex.: `orders` para `orders_v2`) sem tocar na escrita.
 
 ### Controller
 
@@ -157,7 +161,7 @@ Fluxo único: `Controller -> Service -> Repository -> Model`.
 - Dados que crescem sem limite (ex.: pedidos de um cliente) ficam em collection própria, referenciados por id.
 - Arrays embutidos DEVEM ter tamanho máximo validado.
 - Subdocumentos embutidos usam `@Schema({ _id: false })` salvo quando precisam ser endereçados individualmente.
-- Todo schema usa `timestamps: true` e `versionKey: false`.
+- Todo schema usa `timestamps: true` e `versionKey: false`. Exceção: collections derivadas de outra (ex.: `orders_v2`) usam `timestamps: false` e copiam `createdAt`/`updatedAt` da origem.
 - Todo schema define `collection` explicitamente em `@Schema({ collection: 'orders' })`.
 - Todo schema tem campo `schemaVersion: number` com valor padrão.
 - `strict: true` (padrão) nunca é desligado. `Mixed` e `Schema.Types.Mixed` são proibidos.
@@ -200,6 +204,8 @@ Fluxo único: `Controller -> Service -> Repository -> Model`.
   - nunca carregar a collection inteira em memória.
 - Migration já aplicada em qualquer ambiente compartilhado NUNCA é editada. Correção é uma nova migration.
 - Mudança de formato em produção segue sempre: dual-write -> backfill -> validação -> virada de leitura por feature flag -> remoção da versão antiga em migration separada.
+- A collection nova reaproveita o `_id` da antiga. O backfill usa `$merge` com `on: '_id'` e mantém o documento mais novo por `updatedAt`.
+- Feature flags de migração ficam no env (`ORDERS_DUAL_WRITE`, `ORDERS_READ_FROM_V2`), validadas no boot. Ler da versão nova sem dual-write ligado é configuração inválida.
 - `$out` é proibido (substitui a collection de destino). Use `$merge`.
 
 ## Erros e logs
