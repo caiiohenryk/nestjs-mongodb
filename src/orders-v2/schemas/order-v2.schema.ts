@@ -4,6 +4,8 @@ import { ORDER_V2_STATUSES, type OrderV2Status } from '../order-v2-status.js';
 
 export const ORDER_V2_SCHEMA_VERSION = 2;
 
+const integer = { validator: Number.isInteger, message: '{PATH} must be an integer' };
+
 @Schema({ _id: false })
 export class OrderV2Customer {
   @Prop({ required: true, trim: true, maxlength: 200 })
@@ -21,22 +23,22 @@ export class OrderV2Item {
   @Prop({ required: true, maxlength: 200 })
   name: string;
 
-  @Prop({ required: true, min: 1 })
+  @Prop({ required: true, min: 1, validate: integer })
   quantity: number;
 
-  @Prop({ required: true, min: 0 })
+  @Prop({ required: true, min: 0, validate: integer })
   unitPriceCents: number;
 
-  @Prop({ required: true, min: 0 })
+  @Prop({ required: true, min: 0, validate: integer })
   subtotalCents: number;
 }
 
 @Schema({ _id: false })
 export class OrderV2Totals {
-  @Prop({ required: true, min: 0 })
+  @Prop({ required: true, min: 0, validate: integer })
   grossCents: number;
 
-  @Prop({ required: true, min: 0 })
+  @Prop({ required: true, min: 0, validate: integer })
   itemCount: number;
 }
 

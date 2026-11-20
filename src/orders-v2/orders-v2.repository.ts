@@ -40,8 +40,9 @@ export class OrdersV2Repository {
   constructor(@InjectModel(OrderV2.name) private readonly orderV2Model: Model<OrderV2>) {}
 
   async replicate(order: OrderV2Record, session: ClientSession): Promise<void> {
+    const { _id: id, ...fields } = order;
     await this.orderV2Model
-      .replaceOne({ _id: order._id }, order, { upsert: true, session, runValidators: true })
+      .updateOne({ _id: id }, { $set: fields }, { upsert: true, session, runValidators: true })
       .exec();
   }
 
