@@ -42,6 +42,8 @@ docker compose exec mongo mongosh nestjs_mongodb
 | `GET` | `/health/live` | Liveness: o processo responde. Não toca no banco. |
 | `GET` | `/health/ready` | Readiness: banco responde, nó é primário gravável e a app não está desligando. |
 
+`POST /orders` aceita o header `Idempotency-Key` (8 a 128 caracteres). Repetir a requisição com a mesma chave devolve o pedido original em vez de criar outro, o que torna seguro o retry depois de um timeout de rede. A mesma chave com um corpo diferente responde 422. A chave é o `_id` de um documento em `order_idempotency_keys`, gravado na mesma transação do pedido, então requisições concorrentes com a mesma chave criam um pedido só. Um índice TTL apaga as chaves depois de 24 horas.
+
 Transições de status permitidas: `PENDING → PAID → CANCELED` e `PENDING → CANCELED`. A verificação acontece no filtro do próprio update (`{ _id, status: { $in: [...] } }`), então duas requisições concorrentes não conseguem alterar um pedido cancelado.
 
 ```bash
@@ -154,6 +156,8 @@ npm run migrate:create -- nome-da-migration
 | `create-orders-indexes` | Cria `orders` e seus índices. Em produção `autoIndex` fica desligado, então índice só nasce por migration. |
 | `create-orders-v2-collection` | Cria `orders_v2` com validador `$jsonSchema` (o banco rejeita documentos fora do formato) e índices. |
 | `backfill-orders-v2` | Copia e transforma `orders` em `orders_v2` com um aggregation pipeline + `$merge`. |
+| `tighten-orders-v2-validator` | Endurece o `$jsonSchema` de `orders_v2` com `collMod`. Recusa aplicar se algum documento existente violar a regra nova. |
+| `create-order-idempotency-keys` | Cria `order_idempotency_keys` com índice TTL (`expireAfterSeconds`). |
 
 ### `orders` → `orders_v2`
 

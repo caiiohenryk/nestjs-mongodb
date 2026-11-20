@@ -7,6 +7,8 @@ import type { OrderResponse } from './dto/order.response.js';
 import { QueryDailyRevenueDto } from './dto/query-daily-revenue.dto.js';
 import { QueryOrderDto } from './dto/query-order.dto.js';
 import { UpdateOrderDto } from './dto/update-order.dto.js';
+import { IdempotencyKey } from './idempotency-key.decorator.js';
+import { IdempotencyKeyPipe } from './idempotency-key.pipe.js';
 import { OrdersQueryService } from './orders-query.service.js';
 import { OrdersService } from './orders.service.js';
 
@@ -19,8 +21,11 @@ export class OrdersController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(@Body() dto: CreateOrderDto): Promise<OrderResponse> {
-    return this.ordersService.create(dto);
+  create(
+    @Body() dto: CreateOrderDto,
+    @IdempotencyKey(IdempotencyKeyPipe) idempotencyKey: string | undefined,
+  ): Promise<OrderResponse> {
+    return this.ordersService.create(dto, idempotencyKey);
   }
 
   @Get()
